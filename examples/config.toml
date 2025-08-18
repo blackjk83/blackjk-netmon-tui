@@ -1,0 +1,50 @@
+# Example configuration file for Network Monitor TUI
+# Copy this file and modify as needed
+
+[capture]
+# Network interface to monitor (leave empty for auto-detection)
+interface = "eth0"
+
+# Packet capture buffer size in bytes
+buffer_size = 65536
+
+# Capture timeout in milliseconds
+timeout_ms = 1000
+
+# Enable promiscuous mode (requires elevated privileges)
+promiscuous = false
+
+[ui]
+# UI refresh rate in milliseconds (lower = more responsive, higher CPU usage)
+refresh_rate_ms = 1000
+
+# Default view when starting the application
+# Options: "dashboard", "connections", "packets"
+default_view = "dashboard"
+
+# Color scheme for the interface
+# Options: "dark", "light"
+color_scheme = "dark"
+
+[filters]
+# Ignore local loopback traffic
+ignore_local = true
+
+# Ignore traffic on these ports (e.g., SSH, DNS)
+ignore_ports = [22, 53]
+
+# Maximum number of connections to track
+max_connections = 1000
+
+[system]
+# Force Rocky Linux compatibility mode
+rocky_linux_mode = true
+
+# Use fallback methods for older kernels
+use_ebpf_fallback = true
+
+# Check for required capabilities at startup
+check_capabilities = true
+
+# Detected kernel version (auto-filled by application)
+kernel_version = "5.14.0-570.26.1.el9_6.x86_64"
