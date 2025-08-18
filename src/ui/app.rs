@@ -18,6 +18,8 @@ use crate::capture::{PcapEngine, PacketInfo, ProcNetParser, TcpConnection, Inter
 use crate::analysis::{ConnectionTracker, StatisticsCollector, NetworkStatistics};
 use crate::ui::protocol_view::ProtocolView;
 use crate::traffic::{TrafficInspector, TrafficAnalyzer};
+use crate::config::AdvancedFeatures;
+use crate::firewall::{FirewallEngine, FirewallView};
 
 pub struct App {
     pub should_quit: bool,
@@ -36,13 +38,23 @@ pub struct App {
     pub network_statistics: Option<NetworkStatistics>,
     pub interface_metrics: HashMap<String, crate::analysis::InterfaceMetrics>,
     // Phase 3 enhancements
-    pub protocol_view: ProtocolView,
+    // Phase 3: Traffic inspection and analysis
     pub traffic_inspector: TrafficInspector,
     pub traffic_analyzer: TrafficAnalyzer,
+    pub protocol_view: ProtocolView,
+    
+    // Advanced features (opt-in)
+    pub advanced_features: AdvancedFeatures,
+    pub firewall_engine: Option<FirewallEngine>,
+    pub firewall_view: Option<FirewallView>,
 }
 
 impl App {
     pub fn new() -> App {
+        Self::with_advanced_features(AdvancedFeatures::new())
+    }
+    
+    pub fn with_advanced_features(advanced_features: AdvancedFeatures) -> App {
         App {
             should_quit: false,
             packets_captured: 0,
@@ -63,6 +75,19 @@ impl App {
             protocol_view: ProtocolView::new(),
             traffic_inspector: TrafficInspector::new(),
             traffic_analyzer: TrafficAnalyzer::new(),
+            advanced_features: advanced_features.clone(),
+            firewall_engine: if advanced_features.firewall_enabled {
+                let mut engine = FirewallEngine::new();
+                engine.load_default_rules();
+                Some(engine)
+            } else {
+                None
+            },
+            firewall_view: if advanced_features.firewall_enabled {
+                Some(FirewallView::new())
+            } else {
+                None
+            },
         }
     }
     
@@ -114,31 +139,59 @@ impl App {
                     match key.code {
                         KeyCode::Char('q') => self.should_quit = true,
                         KeyCode::Tab => {
-                            self.selected_tab = (self.selected_tab + 1) % 4;
+                            let max_tabs = if self.advanced_features.firewall_enabled { 5 } else { 4 };
+                            self.selected_tab = (self.selected_tab + 1) % max_tabs;
                         },
                         KeyCode::Char('1') => self.selected_tab = 0,
                         KeyCode::Char('2') => self.selected_tab = 1,
                         KeyCode::Char('3') => self.selected_tab = 2,
                         KeyCode::Char('4') => self.selected_tab = 3,
-                        // Handle arrow keys for Protocol View navigation
+                        KeyCode::Char('5') => {
+                            if self.advanced_features.firewall_enabled {
+                                self.selected_tab = 4;
+                            }
+                        },
+                        // Handle arrow keys for Protocol View and Firewall navigation
                         KeyCode::Up => {
                             if self.selected_tab == 3 {
                                 self.protocol_view.previous_protocol();
+                            } else if self.selected_tab == 4 && self.firewall_view.is_some() && self.firewall_engine.is_some() {
+                                if let (Some(ref mut view), Some(ref mut engine)) = (&mut self.firewall_view, &mut self.firewall_engine) {
+                                    view.handle_key(KeyCode::Up, engine);
+                                }
                             }
                         },
                         KeyCode::Down => {
                             if self.selected_tab == 3 {
                                 self.protocol_view.next_protocol();
+                            } else if self.selected_tab == 4 && self.firewall_view.is_some() && self.firewall_engine.is_some() {
+                                if let (Some(ref mut view), Some(ref mut engine)) = (&mut self.firewall_view, &mut self.firewall_engine) {
+                                    view.handle_key(KeyCode::Down, engine);
+                                }
                             }
                         },
                         KeyCode::Left => {
                             if self.selected_tab == 3 {
                                 self.protocol_view.previous_connection();
+                            } else if self.selected_tab == 4 && self.firewall_view.is_some() && self.firewall_engine.is_some() {
+                                if let (Some(ref mut view), Some(ref mut engine)) = (&mut self.firewall_view, &mut self.firewall_engine) {
+                                    view.handle_key(KeyCode::Left, engine);
+                                }
                             }
                         },
                         KeyCode::Right => {
                             if self.selected_tab == 3 {
                                 self.protocol_view.next_connection();
+                            } else if self.selected_tab == 4 && self.firewall_view.is_some() && self.firewall_engine.is_some() {
+                                if let (Some(ref mut view), Some(ref mut engine)) = (&mut self.firewall_view, &mut self.firewall_engine) {
+                                    view.handle_key(KeyCode::Right, engine);
+                                }
+                            }
+                        },
+                        // Handle other firewall keys
+                        key if self.selected_tab == 4 && self.firewall_view.is_some() && self.firewall_engine.is_some() => {
+                            if let (Some(ref mut view), Some(ref mut engine)) = (&mut self.firewall_view, &mut self.firewall_engine) {
+                                view.handle_key(key, engine);
                             }
                         },
                         _ => {}
@@ -209,6 +262,11 @@ impl App {
                 
                 let protocol = self.connection_tracker.get_protocol_analyzer().identify_protocol(&packet);
                 self.traffic_inspector.inspect_packet(&packet, protocol);
+                
+                // Process packet through firewall if enabled
+                if let Some(ref mut firewall_engine) = self.firewall_engine {
+                    firewall_engine.process_packet(&packet);
+                }
             }
         }
         
@@ -266,6 +324,13 @@ impl App {
             1 => self.draw_connections(f, chunks[1]),
             2 => self.draw_packets(f, chunks[1]),
             3 => self.protocol_view.render(chunks[1], f),
+            4 if self.advanced_features.firewall_enabled => {
+                if let (Some(ref mut view), Some(ref engine)) = (&mut self.firewall_view, &self.firewall_engine) {
+                    view.render(f, chunks[1], engine);
+                } else {
+                    self.draw_dashboard(f, chunks[1]);
+                }
+            },
             _ => self.draw_dashboard(f, chunks[1]),
         }
         
@@ -274,7 +339,10 @@ impl App {
     }
     
     fn draw_header(&self, f: &mut Frame, area: ratatui::layout::Rect) {
-        let tabs = vec!["Dashboard", "Connections", "Packets", "Protocols"];
+        let mut tabs = vec!["Dashboard", "Connections", "Packets", "Protocols"];
+        if self.advanced_features.firewall_enabled {
+            tabs.push("Firewall");
+        }
         let selected_style = Style::default()
             .fg(Color::Yellow)
             .add_modifier(Modifier::BOLD);

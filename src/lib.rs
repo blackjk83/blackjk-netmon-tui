@@ -6,6 +6,7 @@ pub mod traffic;
 pub mod ui;
 pub mod utils;
 pub mod visualization;
+pub mod firewall;
 
 pub use analysis::{protocols, connections, statistics};
 pub use capture::{pcap_engine, proc_parser};

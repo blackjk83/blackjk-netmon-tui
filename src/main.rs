@@ -1,5 +1,5 @@
 use clap::Parser;
-use network_monitor::{app::App, settings::Config};
+use network_monitor::{app::App, settings::Config, config::AdvancedFeatures};
 use std::process;
 
 #[derive(Parser)]
@@ -14,6 +14,19 @@ struct Cli {
     
     #[arg(short, long, help = "Enable debug logging")]
     debug: bool,
+    
+    // Advanced features (opt-in)
+    #[arg(long, help = "Enable firewall functionality (advanced)")]
+    enable_firewall: bool,
+    
+    #[arg(long, help = "Enable metrics explorer (advanced)")]
+    enable_metrics: bool,
+    
+    #[arg(long, help = "Enable fuzzy search (advanced)")]
+    enable_search: bool,
+    
+    #[arg(long, help = "Enable all advanced features")]
+    enable_all_advanced: bool,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -35,6 +48,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("Using fallback methods for kernel 5.x compatibility");
     }
     
+    // Configure advanced features based on CLI arguments
+    let advanced_features = AdvancedFeatures::from_cli_args(
+        cli.enable_firewall,
+        cli.enable_metrics,
+        cli.enable_search,
+        cli.enable_all_advanced,
+    );
+    
+    // Display enabled advanced features
+    if advanced_features.has_any_advanced_features() {
+        let enabled_features = advanced_features.get_enabled_features();
+        let memory_usage = advanced_features.get_memory_usage_estimate();
+        println!("Advanced features enabled: {}", enabled_features.join(", "));
+        println!("Estimated additional memory usage: {} KB", memory_usage);
+    } else {
+        println!("Running in lightweight mode (use --help to see advanced options)");
+    }
+    
     // Check for available interfaces
     match network_monitor::capture::ProcNetParser::get_interfaces() {
         Ok(interfaces) => {
@@ -49,8 +80,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
     
-    // Initialize TUI application
-    let mut app = App::new();
+    // Initialize TUI application with advanced features
+    let mut app = App::with_advanced_features(advanced_features);
     
     // Try to initialize packet capture (graceful fallback if it fails)
     if let Err(e) = app.initialize_capture(cli.interface) {
