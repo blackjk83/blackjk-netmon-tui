@@ -94,7 +94,7 @@ impl ProtocolAnalyzer {
         protocol_type
     }
     
-    fn identify_protocol(&self, packet: &PacketInfo) -> ProtocolType {
+    pub fn identify_protocol(&self, packet: &PacketInfo) -> ProtocolType {
         match packet.protocol.as_str() {
             "TCP" => {
                 if let Some(dst_port) = packet.dst_port {

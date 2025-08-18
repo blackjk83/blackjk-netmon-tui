@@ -16,6 +16,8 @@ use std::time::{Duration, Instant};
 use std::collections::HashMap;
 use crate::capture::{PcapEngine, PacketInfo, ProcNetParser, TcpConnection, InterfaceStats};
 use crate::analysis::{ConnectionTracker, StatisticsCollector, NetworkStatistics};
+use crate::ui::protocol_view::ProtocolView;
+use crate::traffic::{TrafficInspector, TrafficAnalyzer};
 
 pub struct App {
     pub should_quit: bool,
@@ -33,6 +35,10 @@ pub struct App {
     pub statistics_collector: StatisticsCollector,
     pub network_statistics: Option<NetworkStatistics>,
     pub interface_metrics: HashMap<String, crate::analysis::InterfaceMetrics>,
+    // Phase 3 enhancements
+    pub protocol_view: ProtocolView,
+    pub traffic_inspector: TrafficInspector,
+    pub traffic_analyzer: TrafficAnalyzer,
 }
 
 impl App {
@@ -53,6 +59,10 @@ impl App {
             statistics_collector: StatisticsCollector::new(),
             network_statistics: None,
             interface_metrics: HashMap::new(),
+            // Phase 3 enhancements
+            protocol_view: ProtocolView::new(),
+            traffic_inspector: TrafficInspector::new(),
+            traffic_analyzer: TrafficAnalyzer::new(),
         }
     }
     
@@ -104,11 +114,33 @@ impl App {
                     match key.code {
                         KeyCode::Char('q') => self.should_quit = true,
                         KeyCode::Tab => {
-                            self.selected_tab = (self.selected_tab + 1) % 3;
+                            self.selected_tab = (self.selected_tab + 1) % 4;
                         },
                         KeyCode::Char('1') => self.selected_tab = 0,
                         KeyCode::Char('2') => self.selected_tab = 1,
                         KeyCode::Char('3') => self.selected_tab = 2,
+                        KeyCode::Char('4') => self.selected_tab = 3,
+                        // Handle arrow keys for Protocol View navigation
+                        KeyCode::Up => {
+                            if self.selected_tab == 3 {
+                                self.protocol_view.previous_protocol();
+                            }
+                        },
+                        KeyCode::Down => {
+                            if self.selected_tab == 3 {
+                                self.protocol_view.next_protocol();
+                            }
+                        },
+                        KeyCode::Left => {
+                            if self.selected_tab == 3 {
+                                self.protocol_view.previous_connection();
+                            }
+                        },
+                        KeyCode::Right => {
+                            if self.selected_tab == 3 {
+                                self.protocol_view.next_connection();
+                            }
+                        },
                         _ => {}
                     }
                 }
@@ -135,6 +167,10 @@ impl App {
                         // Phase 2: Track packet with connection tracker
                         self.connection_tracker.track_packet(&packet);
                         
+                        // Phase 3: Inspect packet with traffic inspector
+                        let protocol = self.connection_tracker.get_protocol_analyzer().identify_protocol(&packet);
+                        self.traffic_inspector.inspect_packet(&packet, protocol);
+                        
                         // Keep only recent packets (last 100)
                         self.recent_packets.push(packet);
                         if self.recent_packets.len() > 100 {
@@ -157,6 +193,23 @@ impl App {
             self.current_connections = connections.clone();
             // Phase 2: Update connection tracker with /proc data
             self.connection_tracker.update_from_proc(&connections);
+            
+            // Phase 3: Feed connection data to traffic inspector for Protocol View
+            for conn in &connections {
+                // Create a synthetic packet info from connection data for traffic inspection
+                let packet = PacketInfo {
+                    timestamp: std::time::SystemTime::now(),
+                    length: 0, // We don't have packet length from /proc
+                    protocol: "TCP".to_string(),
+                    src_ip: Some(conn.local_addr.ip().to_string()),
+                    dst_ip: Some(conn.remote_addr.ip().to_string()),
+                    src_port: Some(conn.local_addr.port()),
+                    dst_port: Some(conn.remote_addr.port()),
+                };
+                
+                let protocol = self.connection_tracker.get_protocol_analyzer().identify_protocol(&packet);
+                self.traffic_inspector.inspect_packet(&packet, protocol);
+            }
         }
         
         // Phase 2: Update interface statistics and metrics
@@ -181,6 +234,16 @@ impl App {
             &self.interface_metrics,
             active_connections,
         ));
+        
+        // Phase 3: Update traffic analysis and protocol view
+        let active_flows = self.traffic_inspector.get_active_flows();
+        let _traffic_analysis = self.traffic_analyzer.analyze_traffic(active_flows);
+        
+        // Always update protocol view with latest data
+        self.protocol_view.update_data(active_flows);
+        
+        // Force cleanup of expired flows to ensure fresh data
+        // This is handled internally by the traffic inspector
     }
     
     fn draw(&mut self, f: &mut Frame) {
@@ -202,6 +265,7 @@ impl App {
             0 => self.draw_dashboard(f, chunks[1]),
             1 => self.draw_connections(f, chunks[1]),
             2 => self.draw_packets(f, chunks[1]),
+            3 => self.protocol_view.render(chunks[1], f),
             _ => self.draw_dashboard(f, chunks[1]),
         }
         
@@ -210,7 +274,7 @@ impl App {
     }
     
     fn draw_header(&self, f: &mut Frame, area: ratatui::layout::Rect) {
-        let tabs = vec!["Dashboard", "Connections", "Packets"];
+        let tabs = vec!["Dashboard", "Connections", "Packets", "Protocols"];
         let selected_style = Style::default()
             .fg(Color::Yellow)
             .add_modifier(Modifier::BOLD);
@@ -222,7 +286,7 @@ impl App {
         }).collect();
         
         let header = Paragraph::new(tab_titles)
-            .block(Block::default().borders(Borders::ALL).title("Network Monitor"))
+            .block(Block::default().borders(Borders::ALL).title("Network Monitor - Enhanced Protocol View"))
             .alignment(Alignment::Center);
         
         f.render_widget(header, area);
@@ -348,8 +412,8 @@ impl App {
     }
     
     fn draw_footer(&self, f: &mut Frame, area: ratatui::layout::Rect) {
-        let help_text = "Press 'q' to quit | Tab/1-3 to switch tabs | Monitoring interface: ";
-        let footer = Paragraph::new(format!("{}{}", help_text, self.interface))
+        let footer_text = "Press 'q' to quit | Tab/1-4 to switch tabs | Monitoring interface: ";
+        let footer = Paragraph::new(format!("{}{}", footer_text, self.interface))
             .block(Block::default().borders(Borders::ALL))
             .alignment(Alignment::Center);
         
