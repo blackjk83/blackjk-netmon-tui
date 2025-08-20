@@ -74,6 +74,53 @@ impl Config {
         }
     }
     
+    pub fn validate_rocky_linux_9() -> Result<(), String> {
+        // Check if we're running on Rocky Linux
+        let os_release = fs::read_to_string("/etc/os-release")
+            .map_err(|_| "Cannot read /etc/os-release - unsupported system".to_string())?;
+        
+        if !os_release.contains("Rocky Linux") {
+            return Err("This application currently only supports Rocky Linux. Other distributions will be supported in future versions.".to_string());
+        }
+        
+        // Extract Rocky Linux version
+        let version_line = os_release
+            .lines()
+            .find(|line| line.starts_with("VERSION_ID="))
+            .ok_or("Cannot determine Rocky Linux version".to_string())?;
+        
+        let version = version_line
+            .split('=')
+            .nth(1)
+            .ok_or("Invalid version format".to_string())?
+            .trim_matches('"');
+        
+        if !version.starts_with("9.") {
+            return Err(format!(
+                "This application currently only supports Rocky Linux 9.x. Found version: {}. Other versions will be supported in future releases.", 
+                version
+            ));
+        }
+        
+        // Check kernel version compatibility
+        let kernel_version = std::process::Command::new("uname")
+            .arg("-r")
+            .output()
+            .map_err(|_| "Cannot determine kernel version".to_string())?
+            .stdout;
+        
+        let kernel_str = String::from_utf8_lossy(&kernel_version).trim().to_string();
+        
+        if !kernel_str.contains("el9") {
+            return Err(format!(
+                "This application requires Rocky Linux 9 kernel (el9). Found kernel: {}. Please ensure you're running on Rocky Linux 9.", 
+                kernel_str
+            ));
+        }
+        
+        Ok(())
+    }
+    
     fn is_rocky_linux() -> bool {
         fs::read_to_string("/etc/os-release")
             .map(|content| content.contains("Rocky Linux"))

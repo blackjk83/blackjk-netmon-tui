@@ -1,4 +1,4 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::VecDeque;
 use std::net::IpAddr;
 use std::time::{Duration, SystemTime};
 use crate::firewall::rules::{FirewallRule, RuleAction, RuleDirection, RuleProtocol};
@@ -99,6 +99,7 @@ pub struct FirewallEngine {
     stats: FirewallStats,
     recent_events: VecDeque<FirewallEvent>,
     max_events: usize,
+    last_cleanup: SystemTime,
     rule_counter: u32,
     enabled: bool,
 }
@@ -110,6 +111,7 @@ impl FirewallEngine {
             stats: FirewallStats::new(),
             recent_events: VecDeque::new(),
             max_events: 1000, // Keep last 1000 events
+            last_cleanup: SystemTime::now(),
             rule_counter: 0,
             enabled: true,
         }

@@ -36,6 +36,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         env_logger::init();
     }
     
+    // Validate Rocky Linux 9 system compatibility
+    if let Err(error_msg) = Config::validate_rocky_linux_9() {
+        eprintln!("\n❌ System Compatibility Error:");
+        eprintln!("{}", error_msg);
+        eprintln!("\n📋 System Requirements:");
+        eprintln!("  • Rocky Linux 9.x");
+        eprintln!("  • Kernel 5.x with el9 designation");
+        eprintln!("  • /proc filesystem access");
+        eprintln!("\n🔮 Future versions will support additional Linux distributions.");
+        eprintln!("\nExiting...");
+        std::process::exit(1);
+    }
+    
     // Load configuration
     let config = Config::detect_system();
     println!("Detected kernel: {}", config.system.kernel_version);

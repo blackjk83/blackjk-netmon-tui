@@ -1,19 +1,18 @@
 use ratatui::{
-    widgets::{Block, Borders, List, ListItem, Paragraph, Table, Row, Cell, Gauge, Clear},
+    widgets::{Block, Borders, List, ListItem, Paragraph, Gauge},
     layout::{Layout, Constraint, Direction, Alignment, Rect},
-    style::{Color, Modifier, Style},
+    style::{Color, Style},
     text::{Line, Span},
     Frame,
 };
-use std::collections::VecDeque;
-use crate::firewall::{FirewallEngine, FirewallRule, RuleAction, RuleDirection, RuleProtocol};
+use crate::firewall::{FirewallEngine, RuleAction, RuleDirection, RuleProtocol};
 
 pub struct FirewallView {
     selected_rule: usize,
     selected_event: usize,
     show_rule_editor: bool,
     show_stats: bool,
-    scroll_offset: usize,
+    _scroll_offset: usize,
 }
 
 impl FirewallView {
@@ -23,7 +22,7 @@ impl FirewallView {
             selected_event: 0,
             show_rule_editor: false,
             show_stats: true,
-            scroll_offset: 0,
+            _scroll_offset: 0,
         }
     }
     
