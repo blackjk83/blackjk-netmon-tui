@@ -50,7 +50,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     
     // Load configuration
-    let config = Config::detect_system();
+    let config = if let Some(config_path) = &cli.config {
+        match Config::load_from_file(config_path) {
+            Ok(loaded_config) => {
+                println!("Loaded configuration from: {}", config_path);
+                loaded_config
+            },
+            Err(e) => {
+                eprintln!("Warning: Failed to load config file '{}': {}", config_path, e);
+                eprintln!("Using default configuration...");
+                Config::detect_system()
+            }
+        }
+    } else {
+        Config::detect_system()
+    };
+    
     println!("Detected kernel: {}", config.system.kernel_version);
     
     if config.system.rocky_linux_mode {
@@ -96,8 +111,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize TUI application with advanced features
     let mut app = App::with_advanced_features(advanced_features);
     
+    // Determine which interface to use: CLI argument takes precedence over config file
+    let interface_to_use = cli.interface.or(config.capture.interface);
+    
     // Try to initialize packet capture (graceful fallback if it fails)
-    if let Err(e) = app.initialize_capture(cli.interface) {
+    if let Err(e) = app.initialize_capture(interface_to_use) {
         eprintln!("Warning: Packet capture initialization failed: {}", e);
         eprintln!("Continuing with connection monitoring only...");
     }

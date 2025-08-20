@@ -3,7 +3,7 @@
 
 [capture]
 # Network interface to monitor (leave empty for auto-detection)
-interface = "eth0"
+interface = "ens18"
 
 # Packet capture buffer size in bytes
 buffer_size = 65536
@@ -16,7 +16,7 @@ promiscuous = false
 
 [ui]
 # UI refresh rate in milliseconds (lower = more responsive, higher CPU usage)
-refresh_rate_ms = 1000
+refresh_rate_ms = 3000
 
 # Default view when starting the application
 # Options: "dashboard", "connections", "packets"
@@ -24,7 +24,7 @@ default_view = "dashboard"
 
 # Color scheme for the interface
 # Options: "dark", "light"
-color_scheme = "dark"
+color_scheme = "light"
 
 [filters]
 # Ignore local loopback traffic
