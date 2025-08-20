@@ -19,12 +19,18 @@ promiscuous = false
 refresh_rate_ms = 3000
 
 # Default view when starting the application
-# Options: "dashboard", "connections", "packets"
+# Options: "dashboard", "connections", "packets", "protocols", "firewall" (if enabled)
 default_view = "dashboard"
 
 # Color scheme for the interface
 # Options: "dark", "light"
 color_scheme = "light"
+
+# Show advanced feature status in UI
+show_feature_status = true
+
+# Maximum number of recent events to display
+max_recent_events = 100
 
 [filters]
 # Ignore local loopback traffic
@@ -36,7 +42,124 @@ ignore_ports = [22, 53]
 # Maximum number of connections to track
 max_connections = 1000
 
+# Filter by protocol types (empty = show all)
+# Options: "TCP", "UDP", "ICMP"
+protocol_filter = []
+
+# Minimum packet size to display (bytes)
+min_packet_size = 0
+
+# Maximum packet size to display (bytes, 0 = no limit)
+max_packet_size = 0
+
+[advanced_features]
+# Advanced features are opt-in to keep the application lightweight by default
+# These can also be enabled via command-line flags (--enable-firewall, etc.)
+
+# Enable firewall functionality (traffic filtering and blocking)
+firewall_enabled = false
+
+# Enable metrics explorer (interactive data exploration and historical analysis)
+metrics_enabled = false
+
+# Enable fuzzy search (advanced filtering and search capabilities)
+search_enabled = false
+
+# Enable deep packet inspection (requires more CPU and memory)
+deep_packet_inspection = false
+
+# Enable historical analysis (stores traffic data for trend analysis)
+historical_analysis = false
+
+# Enable all advanced features at once
+enable_all = false
+
+[firewall]
+# Firewall configuration (only used if firewall_enabled = true)
+
+# Enable firewall by default when feature is active
+default_enabled = true
+
+# Maximum number of firewall rules
+max_rules = 100
+
+# Maximum number of recent events to store
+max_events = 1000
+
+# Default action for unmatched packets
+# Options: "allow", "block", "log"
+default_action = "allow"
+
+# Load default rule templates on startup
+load_default_rules = true
+
+# Rule priority range (0-255, higher = more priority)
+min_priority = 1
+max_priority = 255
+
+# Enable rule statistics tracking
+track_statistics = true
+
+[metrics]
+# Metrics explorer configuration (only used if metrics_enabled = true)
+
+# Data retention period in hours
+retention_hours = 24
+
+# Sample interval in seconds
+sample_interval = 5
+
+# Maximum data points to store per metric
+max_data_points = 1000
+
+# Enable bandwidth monitoring
+bandwidth_monitoring = true
+
+# Enable connection trend analysis
+connection_trends = true
+
+# Enable protocol distribution tracking
+protocol_distribution = true
+
+# Enable geographic IP analysis (requires GeoIP database)
+geoip_analysis = false
+
+# Export metrics to file
+export_enabled = false
+export_format = "json"  # Options: "json", "csv", "prometheus"
+export_interval = 300   # seconds
+
+[search]
+# Fuzzy search configuration (only used if search_enabled = true)
+
+# Enable real-time search indexing
+real_time_indexing = true
+
+# Maximum search results to display
+max_search_results = 50
+
+# Search index size (number of packets/connections to index)
+index_size = 10000
+
+# Enable regex search patterns
+regex_enabled = true
+
+# Enable case-sensitive search
+case_sensitive = false
+
+# Search timeout in milliseconds
+search_timeout = 1000
+
+# Enable search history
+search_history = true
+max_search_history = 100
+
+# Enable search suggestions
+search_suggestions = true
+
 [system]
+# System configuration
+
 # Force Rocky Linux compatibility mode
 rocky_linux_mode = true
 
@@ -48,3 +171,19 @@ check_capabilities = true
 
 # Detected kernel version (auto-filled by application)
 kernel_version = "5.14.0-570.26.1.el9_6.x86_64"
+
+# Memory usage limits
+max_memory_mb = 512
+
+# CPU usage limits (percentage)
+max_cpu_percent = 80
+
+# Enable performance monitoring
+performance_monitoring = true
+
+# Log level for debugging
+# Options: "error", "warn", "info", "debug", "trace"
+log_level = "info"
+
+# Enable crash reporting
+crash_reporting = false
